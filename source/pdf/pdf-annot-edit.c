@@ -133,6 +133,66 @@ pdf_create_annot(fz_context *ctx, pdf_page *page, fz_annot_type type)
 	return annot;
 }
 
+pdf_annot *
+dicti_create_annot(fz_context *ctx, pdf_page *page, fz_annot_type type)
+{
+	pdf_annot *annot = NULL;
+	pdf_document *doc = page->doc;
+	pdf_obj *annot_obj = pdf_new_dict(ctx, doc, 0);
+
+	fz_var(annot);
+	fz_try(ctx)
+	{
+		int ind_obj_num;
+		fz_rect rect = { 0.0, 0.0, 0.0, 0.0 };
+		const char *type_str;
+		pdf_obj *annot_arr;
+
+		type_str = pdf_string_from_annot_type(ctx, type);
+		if (type == PDF_ANNOT_UNKNOWN)
+			fz_throw(ctx, FZ_ERROR_GENERIC, "cannot create unknown annotation");
+
+		annot_arr = pdf_dict_get(ctx, page->obj, PDF_NAME_Annots);
+		if (annot_arr == NULL)
+		{
+			annot_arr = pdf_new_array(ctx, doc, 0);
+			pdf_dict_put_drop(ctx, page->obj, PDF_NAME_Annots, annot_arr);
+		}
+
+		pdf_dict_put_drop(ctx, annot_obj, PDF_NAME_Type, PDF_NAME_Annot);
+
+		pdf_dict_put_drop(ctx, annot_obj, PDF_NAME_Subtype, pdf_new_name(ctx, doc, type_str));
+		pdf_dict_put_drop(ctx, annot_obj, PDF_NAME_Rect, pdf_new_rect(ctx, doc, &rect));
+
+		/* Make printable as default */
+		pdf_dict_put_drop(ctx, annot_obj, PDF_NAME_F, pdf_new_int(ctx, doc, PDF_ANNOT_IS_PRINT));
+
+		annot = pdf_new_annot(ctx, page);
+		annot->ap = NULL;
+
+		/*
+		Linking must be done after any call that might throw because
+		pdf_drop_annots below actually frees a list. Put the new annot
+		at the end of the list, so that it will be drawn last.
+		*/
+		*page->annot_tailp = annot;
+		page->annot_tailp = &annot->next;
+
+		doc->dirty = 1;
+	}
+	fz_always(ctx)
+	{
+		pdf_drop_obj(ctx, annot_obj);
+	}
+	fz_catch(ctx)
+	{
+		pdf_drop_annots(ctx, annot);
+		fz_rethrow(ctx);
+	}
+
+	return annot;
+}
+
 void
 pdf_delete_annot(fz_context *ctx, pdf_page *page, pdf_annot *annot)
 {

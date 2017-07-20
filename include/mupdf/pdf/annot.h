@@ -123,6 +123,7 @@ void pdf_drop_annots(fz_context *ctx, pdf_annot *annot_list);
 	and does not need to be freed.
 */
 pdf_annot *pdf_create_annot(fz_context *ctx, pdf_page *page, fz_annot_type type);
+pdf_annot *dicti_create_annot(fz_context *ctx, pdf_page *page, fz_annot_type type);
 
 /*
 	pdf_delete_annot: delete an annotation
