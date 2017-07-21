@@ -1,4 +1,5 @@
 #include "mupdf/pdf.h"
+#include <android/log.h>
 
 #define TEXT_ANNOT_SIZE (25.0)
 
@@ -143,16 +144,9 @@ dicti_create_annot(fz_context *ctx, pdf_page *page, fz_annot_type type)
 	fz_var(annot);
 	fz_try(ctx)
 	{
-		int ind_obj_num;
 		fz_rect rect = { 0.0, 0.0, 0.0, 0.0 };
-		const char *type_str;
-		pdf_obj *annot_arr;
-
-		type_str = pdf_string_from_annot_type(ctx, type);
-		if (type == PDF_ANNOT_UNKNOWN)
-			fz_throw(ctx, FZ_ERROR_GENERIC, "cannot create unknown annotation");
-
-		annot_arr = pdf_dict_get(ctx, page->obj, PDF_NAME_Annots);
+		const char *type_str = pdf_string_from_annot_type(type);
+		pdf_obj *annot_arr = pdf_dict_get(ctx, page->obj, PDF_NAME_Annots);
 		if (annot_arr == NULL)
 		{
 			annot_arr = pdf_new_array(ctx, doc, 0);
@@ -169,6 +163,14 @@ dicti_create_annot(fz_context *ctx, pdf_page *page, fz_annot_type type)
 
 		annot = pdf_new_annot(ctx, page);
 		annot->ap = NULL;
+
+		/*
+			Both annotation object and annotation structure are now created.
+			Insert the object in the hierarchy and the structure in the
+			page's array.
+		*/
+		pdf_array_push(ctx, annot_arr, annot_obj);
+		annot->obj = annot_obj;
 
 		/*
 		Linking must be done after any call that might throw because
@@ -444,9 +446,13 @@ void pdf_annot_quad_point(fz_context *ctx, pdf_annot *annot, int idx, float v[8]
 	}
 }
 
+#define LOG_TAG "libmupdf"
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO,LOG_TAG,__VA_ARGS__)
+
 void
 pdf_set_annot_quad_points(fz_context *ctx, pdf_annot *annot, int n, const float *v)
 {
+	LOGI("pdf_set_annot_quad_points");
 	pdf_document *doc = annot->page->doc;
 	fz_matrix page_ctm, inv_page_ctm;
 	pdf_obj *quad_points;
@@ -456,11 +462,15 @@ pdf_set_annot_quad_points(fz_context *ctx, pdf_annot *annot, int n, const float 
 	// TODO: check annot type
 
 	pdf_page_transform(ctx, annot->page, NULL, &page_ctm);
+	LOGI("pdf_set_annot_quad_points1");
 	fz_invert_matrix(&inv_page_ctm, &page_ctm);
+	LOGI("pdf_set_annot_quad_points2");
 
 	quad_points = pdf_new_array(ctx, doc, n * 8);
+	LOGI("pdf_set_annot_quad_points3");
 	for (i = 0; i < n; ++i)
 	{
+		LOGI("pdf_set_annot_quad_points3_1: %d", i);
 		for (k = 0; k < 4; ++k)
 		{
 			point.x = v[i * 8 + k * 2 + 0];
@@ -470,8 +480,19 @@ pdf_set_annot_quad_points(fz_context *ctx, pdf_annot *annot, int n, const float 
 			pdf_array_push_drop(ctx, quad_points, pdf_new_real(ctx, doc, point.y));
 		}
 	}
+	LOGI("pdf_set_annot_quad_points4");
+	if (!annot->obj) 
+	{
+		LOGI("!pdf_obj");
+	}
+	else
+	{
+		LOGI("pdf_obj: %p", (void *)annot->obj);
+	}
 	pdf_dict_put_drop(ctx, annot->obj, PDF_NAME_QuadPoints, quad_points);
+	LOGI("pdf_set_annot_quad_points5");
 	annot->changed = 1;
+	LOGI("pdf_set_annot_quad_points_end");
 }
 
 int pdf_annot_ink_list_count(fz_context *ctx, pdf_annot *annot)

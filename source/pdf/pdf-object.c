@@ -1,5 +1,5 @@
 #include "mupdf/pdf.h"
-
+#include <android/log.h>
 #include "pdf-name-table.h"
 
 typedef enum pdf_objkind_e
@@ -1259,15 +1259,19 @@ pdf_dict_geta(fz_context *ctx, pdf_obj *obj, pdf_obj *key, pdf_obj *abbrev)
 	return pdf_dict_get(ctx, obj, abbrev);
 }
 
+#define LOG_TAG "libmupdf"
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO,LOG_TAG,__VA_ARGS__)
+
 static void
 pdf_dict_get_put(fz_context *ctx, pdf_obj *obj, pdf_obj *key, pdf_obj *val, pdf_obj **old_val)
 {
 	int i;
-
+	LOGI("obj kind1: %s", pdf_objkindstr(obj));
 	if (old_val)
 		*old_val = NULL;
 
 	RESOLVE(obj);
+	LOGI("obj kind2: %s", pdf_objkindstr(obj));
 	if (!OBJ_IS_DICT(obj))
 		fz_throw(ctx, FZ_ERROR_GENERIC, "not a dict (%s)", pdf_objkindstr(obj));
 	if (!OBJ_IS_NAME(key))
